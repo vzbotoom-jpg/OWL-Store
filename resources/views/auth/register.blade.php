@@ -5,156 +5,144 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Daftar — OWL Store</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="bg-gray-50 min-h-screen flex items-center justify-center px-4 py-8">
+<body class="bg-gray-50 min-h-screen flex items-center justify-center px-4">
 
-    <div class="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 bg-white rounded-3xl shadow-xl overflow-hidden">
+    <div class="w-full max-w-sm">
 
-        {{-- Sisi Kiri --}}
-        <div class="bg-[#1a2744] p-10 flex-col justify-between hidden md:flex">
-            <div>
-                <a href="{{ route('home') }}" class="flex items-center gap-3 mb-12">
-                    <div class="w-10 h-10 bg-[#e8a020] rounded-xl flex items-center justify-center">
-                        <i class="ti ti-flame text-white text-2xl"></i>
-                    </div>
-                    <div>
-                        <div class="text-white font-bold">OWL Store</div>
-                        <div class="text-[#e8a020] text-[10px] tracking-widest">by OptimaWeld</div>
-                    </div>
-                </a>
-                <h2 class="text-white text-2xl font-bold leading-snug mb-4">
-                    Bergabung dengan<br>
-                    <span class="text-[#e8a020]">OWL Store</span>
-                </h2>
-                <p class="text-blue-300 text-sm leading-relaxed">
-                    Daftar sekarang dan nikmati promo grand opening — diskon 20% untuk pembelian pertama!
-                </p>
-            </div>
-            <div class="bg-[#e8a020]/10 border border-[#e8a020]/30 rounded-2xl p-4 mt-8">
-                <div class="text-[#e8a020] font-bold text-sm mb-1">🎉 Promo Member Baru</div>
-                <div class="text-blue-200 text-xs leading-relaxed">
-                    Diskon 20% untuk pembelian pertama + gratis ongkir area Yogyakarta untuk semua member baru.
+        {{-- Logo --}}
+        <div class="text-center mb-6">
+            <a href="{{ route('home') }}" class="inline-flex items-center gap-2">
+                <div class="w-8 h-8 bg-[#e8a020] rounded-lg flex items-center justify-center shadow-sm">
+                    <i class="ti ti-flame text-white text-base"></i>
                 </div>
-            </div>
+                <div>
+                    <div class="font-bold text-[#1a2744] text-sm">OWL Store</div>
+                    <div class="text-[#e8a020] text-[7px] tracking-widest">by OptimaWeld</div>
+                </div>
+            </a>
         </div>
 
-        {{-- Sisi Kanan --}}
-        <div class="p-8 sm:p-10">
+        {{-- Card --}}
+        <div class="bg-white rounded-xl p-5 shadow-md border border-gray-100">
+            <h2 class="text-lg font-bold text-gray-800 text-center mb-4">Daftar</h2>
 
-            <h2 class="text-2xl font-bold text-gray-800 mb-1">Buat Akun Baru</h2>
-            <p class="text-gray-400 text-sm mb-7">Isi data di bawah untuk mendaftar</p>
+            {{-- Error Messages --}}
+            @if($errors->any())
+            <div class="bg-red-50 border border-red-200 text-red-600 text-xs px-3 py-2 rounded-lg mb-3 space-y-0.5">
+                @foreach($errors->all() as $error)
+                    <p>{{ $error }}</p>
+                @endforeach
+            </div>
+            @endif
 
-            <form method="POST" action="{{ route('register.post') }}" class="space-y-4">
+            {{-- Form --}}
+            <form method="POST" action="{{ route('register.post') }}" class="space-y-3">
                 @csrf
 
-                {{-- Nama --}}
                 <div>
-                    <label class="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wider">Nama Lengkap</label>
                     <div class="relative">
-                        <i class="ti ti-user absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg"></i>
-                        <input type="text" name="name" value="{{ old('name') }}"
-                               placeholder="Nama lengkap Anda"
-                               class="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#e8a020] focus:ring-2 focus:ring-[#e8a020]/20 transition-all @error('name') border-red-400 @enderror">
+                        <i class="ti ti-user absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-base"></i>
+                        <input type="text" name="name" value="{{ old('name') }}" required
+                               placeholder="Nama lengkap"
+                               class="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#e8a020] focus:ring-1 focus:ring-[#e8a020]/20">
                     </div>
-                    @error('name')
-                    <p class="text-red-500 text-xs mt-1"><i class="ti ti-alert-circle text-xs"></i> {{ $message }}</p>
-                    @enderror
                 </div>
 
-                {{-- Email --}}
                 <div>
-                    <label class="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wider">Email</label>
                     <div class="relative">
-                        <i class="ti ti-mail absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg"></i>
-                        <input type="email" name="email" value="{{ old('email') }}"
-                               placeholder="email@example.com"
-                               class="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#e8a020] focus:ring-2 focus:ring-[#e8a020]/20 transition-all @error('email') border-red-400 @enderror">
+                        <i class="ti ti-mail absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-base"></i>
+                        <input type="email" name="email" value="{{ old('email') }}" required
+                               placeholder="Email"
+                               class="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#e8a020] focus:ring-1 focus:ring-[#e8a020]/20">
                     </div>
-                    @error('email')
-                    <p class="text-red-500 text-xs mt-1"><i class="ti ti-alert-circle text-xs"></i> {{ $message }}</p>
-                    @enderror
                 </div>
 
-                {{-- No HP --}}
                 <div>
-                    <label class="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wider">
-                        Nomor HP <span class="text-gray-300 normal-case">(opsional)</span>
+                    <div class="relative">
+                        <i class="ti ti-phone absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-base"></i>
+                        <input type="tel" name="phone" value="{{ old('phone') }}"
+                               placeholder="No. telepon (opsional)"
+                               class="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#e8a020] focus:ring-1 focus:ring-[#e8a020]/20">
+                    </div>
+                </div>
+
+                <div>
+                    <div class="relative" x-data="{ show: false }">
+                        <i class="ti ti-lock absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-base"></i>
+                        <input :type="show ? 'text' : 'password'" name="password" required
+                               placeholder="Password (min. 8 karakter)"
+                               class="w-full pl-9 pr-9 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#e8a020] focus:ring-1 focus:ring-[#e8a020]/20">
+                        <button type="button" @click="show = !show"
+                                class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                            <i class="ti ti-eye text-sm" x-show="!show"></i>
+                            <i class="ti ti-eye-off text-sm" x-show="show"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="relative" x-data="{ show: false }">
+                        <i class="ti ti-lock-check absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-base"></i>
+                        <input :type="show ? 'text' : 'password'" name="password_confirmation" required
+                               placeholder="Konfirmasi password"
+                               class="w-full pl-9 pr-9 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#e8a020] focus:ring-1 focus:ring-[#e8a020]/20">
+                        <button type="button" @click="show = !show"
+                                class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                            <i class="ti ti-eye text-sm" x-show="!show"></i>
+                            <i class="ti ti-eye-off text-sm" x-show="show"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-1.5">
+                    <input type="checkbox" name="terms" id="terms" required
+                           class="w-3 h-3 rounded border-gray-300 text-[#e8a020]">
+                    <label for="terms" class="text-[10px] text-gray-500">
+                        Setuju <a href="#" class="text-[#e8a020]">Syarat & Ketentuan</a>
                     </label>
-                    <div class="relative">
-                        <i class="ti ti-phone absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg"></i>
-                        <input type="text" name="phone" value="{{ old('phone') }}"
-                               placeholder="08xxxxxxxxxx"
-                               class="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#e8a020] focus:ring-2 focus:ring-[#e8a020]/20 transition-all">
-                    </div>
                 </div>
 
-                {{-- Password --}}
-                <div>
-                    <label class="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wider">Password</label>
-                    <div class="relative">
-                        <i class="ti ti-lock absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg"></i>
-                        <input type="password" name="password" id="password"
-                               placeholder="Minimal 8 karakter"
-                               class="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#e8a020] focus:ring-2 focus:ring-[#e8a020]/20 transition-all @error('password') border-red-400 @enderror">
-                        <button type="button" onclick="togglePass('password','eye1')"
-                                class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                            <i class="ti ti-eye" id="eye1"></i>
-                        </button>
-                    </div>
-                    @error('password')
-                    <p class="text-red-500 text-xs mt-1"><i class="ti ti-alert-circle text-xs"></i> {{ $message }}</p>
-                    @enderror
-                </div>
-
-                {{-- Konfirmasi Password --}}
-                <div>
-                    <label class="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wider">Konfirmasi Password</label>
-                    <div class="relative">
-                        <i class="ti ti-lock-check absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg"></i>
-                        <input type="password" name="password_confirmation" id="password2"
-                               placeholder="Ulangi password"
-                               class="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#e8a020] focus:ring-2 focus:ring-[#e8a020]/20 transition-all">
-                        <button type="button" onclick="togglePass('password2','eye2')"
-                                class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                            <i class="ti ti-eye" id="eye2"></i>
-                        </button>
-                    </div>
-                </div>
-
-                {{-- Submit --}}
                 <button type="submit"
-                        class="w-full bg-[#e8a020] hover:bg-[#d4911a] text-[#1a2744] font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 mt-2">
-                    <i class="ti ti-user-plus text-lg"></i> Daftar Sekarang
+                        class="w-full bg-[#e8a020] hover:bg-[#d4911a] text-[#1a2744] font-semibold py-2 rounded-lg text-sm transition-all">
+                    Daftar
                 </button>
             </form>
 
-            {{-- Login link --}}
-            <p class="text-center text-sm text-gray-500 mt-6">
-                Sudah punya akun?
-                <a href="{{ route('login') }}" class="text-[#e8a020] font-semibold hover:underline">Masuk di sini</a>
-            </p>
+            {{-- Divider --}}
+            <div class="flex items-center gap-2 my-4">
+                <div class="flex-1 h-px bg-gray-200"></div>
+                <span class="text-xs text-gray-400">atau</span>
+                <div class="flex-1 h-px bg-gray-200"></div>
+            </div>
 
-            <p class="text-center mt-3">
-                <a href="{{ route('home') }}" class="text-xs text-gray-400 hover:text-gray-600 flex items-center justify-center gap-1 transition-colors">
-                    <i class="ti ti-arrow-left text-xs"></i> Kembali ke toko
+            {{-- Social Buttons --}}
+            <div class="space-y-2">
+                <a href="#" 
+                   class="w-full flex items-center justify-center gap-2 border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-sm py-2 rounded-lg transition-all">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24">
+                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                    </svg>
+                    <span>Google</span>
                 </a>
+                <a href="#" 
+                   class="w-full flex items-center justify-center gap-2 bg-black hover:bg-gray-900 text-white text-sm py-2 rounded-lg transition-all">
+                    <i class="ti ti-brand-apple text-base"></i>
+                    <span>Apple</span>
+                </a>
+            </div>
+
+            {{-- Login Link --}}
+            <p class="text-center text-xs text-gray-500 mt-4">
+                Sudah punya akun? <a href="{{ route('login') }}" class="text-[#e8a020] font-semibold">Masuk</a>
             </p>
         </div>
     </div>
 
-    <script>
-        function togglePass(id, iconId) {
-            const pwd = document.getElementById(id);
-            const icon = document.getElementById(iconId);
-            if (pwd.type === 'password') {
-                pwd.type = 'text';
-                icon.className = 'ti ti-eye-off';
-            } else {
-                pwd.type = 'password';
-                icon.className = 'ti ti-eye';
-            }
-        }
-    </script>
 </body>
 </html>

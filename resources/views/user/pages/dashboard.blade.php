@@ -39,10 +39,10 @@
     {{-- Menu shortcut --}}
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
         @foreach([
-            ['ti-shopping-bag',  '#', 'Pesanan Saya',  'bg-blue-50   text-blue-600'],
-            ['ti-heart',         '#', 'Wishlist',       'bg-red-50    text-red-500'],
-            ['ti-map-pin',       '#', 'Alamat',         'bg-green-50  text-green-600'],
-            ['ti-user',          '#', 'Profil',         'bg-amber-50  text-amber-600'],
+            ['ti-shopping-bag',  route('user.orders'), 'Pesanan Saya',  'bg-blue-50   text-blue-600'],
+            ['ti-heart',         route('user.wishlist'), 'Wishlist',   'bg-red-50    text-red-500'],
+            ['ti-map-pin',       route('user.addresses'), 'Alamat',     'bg-green-50  text-green-600'],
+            ['ti-user',          route('user.profile'), 'Profil',         'bg-amber-50  text-amber-600'],
         ] as [$icon, $url, $label, $class])
         <a href="{{ $url }}"
            class="bg-white rounded-2xl border border-gray-100 p-5 text-center hover:shadow-md hover:-translate-y-0.5 transition-all">

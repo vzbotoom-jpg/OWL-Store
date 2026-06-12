@@ -10,7 +10,16 @@ class User extends Authenticatable
     use Notifiable;
 
     protected $fillable = [
-        'name', 'email', 'password', 'is_admin', 'phone',
+        'name', 
+        'username',      // ⭐ BARU
+        'email', 
+        'password', 
+        'is_admin', 
+        'phone',
+        'avatar',        // ⭐ BARU
+        'bio',           // ⭐ BARU
+        'gender',        // ⭐ BARU
+        'birthdate',     // ⭐ BARU
     ];
 
     protected $hidden = [
@@ -21,6 +30,7 @@ class User extends Authenticatable
         'is_admin'          => 'boolean',
         'email_verified_at' => 'datetime',
         'password'          => 'hashed',
+        'birthdate'         => 'date',
     ];
 
     public function orders()
