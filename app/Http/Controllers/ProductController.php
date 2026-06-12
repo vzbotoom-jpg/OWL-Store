@@ -90,40 +90,45 @@ class ProductController extends Controller
     }
 
     public function category($slug, Request $request)
-    {
-        $category = Category::where('slug', $slug)->firstOrFail();
-        
-        $query = Product::with('category')
-            ->where('category_id', $category->id)
-            ->where('is_active', true);
-        
-        // Similar filters as above
-        if ($request->has('search') && $request->search) {
-            $query->where('name', 'like', '%' . $request->search . '%');
-        }
-        
-        if ($request->has('min_price') && $request->min_price) {
-            $query->where('price', '>=', $request->min_price);
-        }
-        if ($request->has('max_price') && $request->max_price) {
-            $query->where('price', '<=', $request->max_price);
-        }
-        
-        $products = $query->paginate(12);
-        
-        if ($request->ajax()) {
-            $html = view('pages.products._product_grid', compact('products'))->render();
-            $pagination = $products->links()->render();
-            
-            return response()->json([
-                'html' => $html,
-                'pagination' => $pagination,
-                'total' => $products->total(),
-                'from' => $products->firstItem(),
-                'to' => $products->lastItem()
-            ]);
-        }
-        
-        return view('pages.products.index', compact('products', 'category'));
+{
+    // Cari kategori, jika tidak ada redirect ke 404
+    $category = Category::where('slug', $slug)->first();
+    
+    if (!$category) {
+        abort(404, 'Kategori tidak ditemukan');
     }
+    
+    $query = Product::with('category')
+        ->where('category_id', $category->id)
+        ->where('is_active', true);
+    
+    // Similar filters as above
+    if ($request->has('search') && $request->search) {
+        $query->where('name', 'like', '%' . $request->search . '%');
+    }
+    
+    if ($request->has('min_price') && $request->min_price) {
+        $query->where('price', '>=', $request->min_price);
+    }
+    if ($request->has('max_price') && $request->max_price) {
+        $query->where('price', '<=', $request->max_price);
+    }
+    
+    $products = $query->paginate(12);
+    
+    if ($request->ajax()) {
+        $html = view('pages.products._product_grid', compact('products'))->render();
+        $pagination = $products->links()->render();
+        
+        return response()->json([
+            'html' => $html,
+            'pagination' => $pagination,
+            'total' => $products->total(),
+            'from' => $products->firstItem(),
+            'to' => $products->lastItem()
+        ]);
+    }
+    
+    return view('pages.products.index', compact('products', 'category'));
+}
 }
