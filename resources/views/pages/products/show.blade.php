@@ -170,11 +170,17 @@
                         class="border-2 border-[#e8a020] text-[#e8a020] font-semibold text-sm py-3.5 rounded-xl hover:bg-amber-50 transition-all duration-300 flex items-center justify-center gap-2">
                     <i class="ti ti-shopping-cart text-lg"></i> Keranjang
                 </button>
-                <button id="buyNowBtn"
+                <button onclick="buyNow()"
                         class="bg-[#e8a020] hover:bg-[#d4911a] text-[#1a2744] font-semibold text-sm py-3.5 rounded-xl transition-all duration-300 flex items-center justify-center gap-2">
                     <i class="ti ti-bolt text-lg"></i> Beli Sekarang
                 </button>
             </div>
+            
+            {{-- Wishlist Button (Separate) --}}
+            <button onclick="toggleWishlist(event, {{ $product->id }})"
+                    class="w-full border border-gray-300 hover:border-red-500 text-gray-600 hover:text-red-500 font-medium text-sm py-3 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 mb-3">
+                <i class="ti ti-heart text-lg"></i> Wishlist
+            </button>
             
             {{-- WhatsApp Consultation --}}
             <a href="https://wa.me/6283844029190?text=Halo%2C%20saya%20ingin%20tanya%20produk%20{{ urlencode($product->name) }}"
@@ -305,6 +311,8 @@
 @push('scripts')
 <script>
     let currentQty = 1;
+    let selectedVariant = null;
+    let selectedSize = null;
     const maxStock = {{ $product->stock }};
     
     function decrementQty() {
@@ -323,13 +331,21 @@
     
     function addToCart(productId) {
         const quantity = currentQty;
+        const variant = selectedVariant;
+        const size = selectedSize;
+        
         fetch('{{ route("cart.add") }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': '{{ csrf_token() }}'
             },
-            body: JSON.stringify({ product_id: productId, quantity: quantity })
+            body: JSON.stringify({ 
+                product_id: productId, 
+                quantity: quantity,
+                variant: variant,
+                size: size
+            })
         })
         .then(response => response.json())
         .then(data => {
@@ -339,12 +355,79 @@
             } else {
                 showToast(data.message || 'Gagal menambahkan ke keranjang', 'error');
             }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Terjadi kesalahan. Silakan coba lagi.', 'error');
+        });
+    }
+    
+    function buyNow() {
+        const productId = {{ $product->id }};
+        const quantity = currentQty;
+        const variant = selectedVariant;
+        const size = selectedSize;
+        
+        // Cek apakah user sudah login
+        @guest
+            showToast('Silakan login terlebih dahulu', 'error');
+            setTimeout(() => {
+                window.location.href = '{{ route("login") }}';
+            }, 1500);
+            return;
+        @endguest
+        
+        // Tampilkan loading state
+        const buyBtn = document.querySelector('[onclick="buyNow()"]');
+        const originalText = buyBtn.innerHTML;
+        buyBtn.innerHTML = '<i class="ti ti-loader rotate-animation text-lg"></i> Memproses...';
+        buyBtn.disabled = true;
+        
+        fetch('{{ route("cart.add") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({ 
+                product_id: productId, 
+                quantity: quantity,
+                variant: variant,
+                size: size,
+                buy_now: true 
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Redirect ke halaman checkout
+                window.location.href = '{{ route("checkout") }}';
+            } else {
+                showToast(data.message || 'Gagal melanjutkan ke checkout', 'error');
+                buyBtn.innerHTML = originalText;
+                buyBtn.disabled = false;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Terjadi kesalahan. Silakan coba lagi.', 'error');
+            buyBtn.innerHTML = originalText;
+            buyBtn.disabled = false;
         });
     }
     
     function toggleWishlist(event, productId) {
         event.preventDefault();
         event.stopPropagation();
+        
+        // Cek apakah user sudah login
+        @guest
+            showToast('Silakan login terlebih dahulu', 'error');
+            setTimeout(() => {
+                window.location.href = '{{ route("login") }}';
+            }, 1500);
+            return;
+        @endguest
         
         fetch('{{ route("wishlist.toggle") }}', {
             method: 'POST',
@@ -363,13 +446,28 @@
                 if (data.in_wishlist) {
                     icon.classList.add('text-red-500');
                     icon.classList.remove('text-gray-500');
+                    // Update wishlist count di halaman
+                    const wishlistCountSpan = document.querySelector('.ti-heart + span');
+                    if (wishlistCountSpan) {
+                        let currentCount = parseInt(wishlistCountSpan.innerText) || 0;
+                        wishlistCountSpan.innerText = currentCount + 1;
+                    }
                 } else {
                     icon.classList.remove('text-red-500');
                     icon.classList.add('text-gray-500');
+                    const wishlistCountSpan = document.querySelector('.ti-heart + span');
+                    if (wishlistCountSpan) {
+                        let currentCount = parseInt(wishlistCountSpan.innerText) || 0;
+                        wishlistCountSpan.innerText = Math.max(0, currentCount - 1);
+                    }
                 }
             } else {
-                showToast(data.message || 'Silakan login terlebih dahulu', 'error');
+                showToast(data.message || 'Gagal mengupdate wishlist', 'error');
             }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Terjadi kesalahan. Silakan coba lagi.', 'error');
         });
     }
     
@@ -410,6 +508,15 @@
     // Variant selection
     document.querySelectorAll('.variant-btn').forEach(btn => {
         btn.addEventListener('click', function() {
+            // Untuk finishing
+            if (this.closest('.mb-4') && this.closest('.mb-4').querySelector('.text-xs.font-semibold')?.innerText.includes('Finishing')) {
+                selectedVariant = this.innerText.trim();
+            }
+            // Untuk ukuran
+            if (this.closest('.mb-4') && this.closest('.mb-4').querySelector('.text-xs.font-semibold')?.innerText.includes('Ukuran')) {
+                selectedSize = this.innerText.trim();
+            }
+            
             document.querySelectorAll('.variant-btn').forEach(b => {
                 b.classList.remove('border-[#e8a020]', 'bg-amber-50', 'text-amber-700');
                 b.classList.add('border-gray-200', 'text-gray-600');
@@ -463,6 +570,12 @@
     }
     .animate-fade-out-down {
         animation: fade-out-down 0.3s ease-in forwards;
+    }
+    .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
     }
 </style>
 @endsection

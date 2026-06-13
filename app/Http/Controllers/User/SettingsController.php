@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
+use App\Models\Wishlist;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -93,6 +94,9 @@ class SettingsController extends Controller
         ]);
     }
 
+    /**
+     * Delete user account
+     */
     public function deleteAccount(Request $request)
     {
         $user = Auth::user();
@@ -106,16 +110,33 @@ class SettingsController extends Controller
         }
 
         // Hapus semua data terkait
-        if ($user->avatar) {
+        if ($user->avatar && Storage::disk('public')->exists($user->avatar)) {
             Storage::disk('public')->delete($user->avatar);
         }
         
-        $user->addresses()->delete();
-        $user->orders()->delete();
-        $user->reviews()->delete();
+        // Delete related data
+        if ($user->addresses) {
+            $user->addresses()->delete();
+        }
+        if ($user->orders) {
+            $user->orders()->delete();
+        }
+        if ($user->reviews) {
+            $user->reviews()->delete();
+        }
+        
+        // Delete wishlist
+        Wishlist::where('user_id', $user->id)->delete();
+        
+        // Delete user
         $user->delete();
 
+        // Logout
         Auth::logout();
+
+        // Invalidate session
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
 
         return redirect()->route('home')
             ->with('success', 'Akun Anda telah dihapus. Terima kasih telah berbelanja di OWL Store!');

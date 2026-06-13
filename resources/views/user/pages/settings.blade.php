@@ -25,6 +25,14 @@
         </div>
         @endif
 
+        {{-- Alert Error --}}
+        @if($errors->any())
+        <div class="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-xl flex items-center gap-2">
+            <i class="ti ti-alert-circle text-red-500"></i>
+            {{ $errors->first() }}
+        </div>
+        @endif
+
         {{-- Profile Section --}}
         <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
             <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
@@ -78,14 +86,14 @@
                 <p class="text-xs text-gray-400 mt-0.5">Kelola password dan keamanan akun</p>
             </div>
             <div class="divide-y divide-gray-100">
-                <a href="{{ route('user.security') }}"
-                   class="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors">
+                <button onclick="openPasswordModal()"
+                        class="flex items-center justify-between w-full px-5 py-4 hover:bg-gray-50 transition-colors">
                     <div class="flex items-center gap-3">
                         <i class="ti ti-lock text-gray-400 text-xl"></i>
                         <span class="text-sm text-gray-700">Ganti Password</span>
                     </div>
                     <i class="ti ti-chevron-right text-gray-300 text-sm"></i>
-                </a>
+                </button>
                 <div class="flex items-center justify-between px-5 py-4">
                     <div class="flex items-center gap-3">
                         <i class="ti ti-shield text-gray-400 text-xl"></i>
@@ -96,7 +104,7 @@
                     </div>
                     <label class="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" class="sr-only peer" id="twoFactorToggle"
-                               {{ $user->two_factor_enabled ? 'checked' : '' }}>
+                               {{ $user->two_factor_enabled ?? false ? 'checked' : '' }}>
                         <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#e8a020]"></div>
                     </label>
                 </div>
@@ -204,6 +212,40 @@
     </div>
 </div>
 
+{{-- Change Password Modal --}}
+<div id="passwordModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden" style="backdrop-filter: blur(4px);">
+    <div class="bg-white rounded-2xl w-full max-w-md mx-4 overflow-hidden">
+        <div class="bg-[#1a2744] px-5 py-4 flex items-center justify-between">
+            <h3 class="text-white font-bold">Ganti Password</h3>
+            <button onclick="closePasswordModal()" class="text-blue-200 hover:text-white">
+                <i class="ti ti-x text-xl"></i>
+            </button>
+        </div>
+        <form action="{{ route('user.security.password') }}" method="POST" class="p-5 space-y-4">
+            @csrf
+            <div>
+                <label class="block text-xs font-semibold text-gray-500 mb-1.5">Password Saat Ini</label>
+                <input type="password" name="current_password" required
+                       class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#e8a020]">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-500 mb-1.5">Password Baru</label>
+                <input type="password" name="new_password" required
+                       class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#e8a020]">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-500 mb-1.5">Konfirmasi Password Baru</label>
+                <input type="password" name="new_password_confirmation" required
+                       class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#e8a020]">
+            </div>
+            <button type="submit"
+                    class="w-full bg-[#e8a020] hover:bg-[#d4911a] text-[#1a2744] font-bold py-3 rounded-xl transition-colors">
+                Simpan Password
+            </button>
+        </form>
+    </div>
+</div>
+
 {{-- Delete Account Modal --}}
 <div id="deleteModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden" style="backdrop-filter: blur(4px);">
     <div class="bg-white rounded-2xl w-full max-w-md mx-4 overflow-hidden">
@@ -245,6 +287,14 @@
     function closeProfileModal() {
         document.getElementById('profileModal').classList.add('hidden');
     }
+    
+    function openPasswordModal() {
+        document.getElementById('passwordModal').classList.remove('hidden');
+    }
+    function closePasswordModal() {
+        document.getElementById('passwordModal').classList.add('hidden');
+    }
+    
     function openDeleteModal() {
         document.getElementById('deleteModal').classList.remove('hidden');
     }
@@ -258,6 +308,17 @@
             alert('Fitur verifikasi 2 langkah akan segera hadir!');
             e.target.checked = false;
         }
+    });
+
+    // Close modals when clicking outside
+    document.getElementById('profileModal')?.addEventListener('click', function(e) {
+        if (e.target === this) closeProfileModal();
+    });
+    document.getElementById('passwordModal')?.addEventListener('click', function(e) {
+        if (e.target === this) closePasswordModal();
+    });
+    document.getElementById('deleteModal')?.addEventListener('click', function(e) {
+        if (e.target === this) closeDeleteModal();
     });
 
     // Notification toggles (simpan ke server via AJAX)
@@ -274,7 +335,7 @@
                     type: id,
                     value: e.target.checked
                 })
-            });
+            }).catch(error => console.error('Error:', error));
         });
     });
 </script>

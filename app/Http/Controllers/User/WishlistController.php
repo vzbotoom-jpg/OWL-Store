@@ -10,12 +10,61 @@ use Illuminate\Support\Facades\Auth;
 
 class WishlistController extends Controller
 {
+    /**
+     * Toggle wishlist (add/remove)
+     */
+    public function toggle(Request $request)
+    {
+        $request->validate([
+            'product_id' => 'required|exists:products,id'
+        ]);
+
+        $user = Auth::user();
+        $productId = $request->product_id;
+
+        // Check if product is already in wishlist
+        $wishlist = Wishlist::where('user_id', $user->id)
+            ->where('product_id', $productId)
+            ->first();
+
+        if ($wishlist) {
+            // Remove from wishlist
+            $wishlist->delete();
+            
+            // Decrement wishlist count on product
+            Product::where('id', $productId)->decrement('wishlist_count');
+            
+            return response()->json([
+                'success' => true,
+                'in_wishlist' => false,
+                'message' => 'Produk dihapus dari wishlist'
+            ]);
+        } else {
+            // Add to wishlist
+            Wishlist::create([
+                'user_id' => $user->id,
+                'product_id' => $productId
+            ]);
+            
+            // Increment wishlist count on product
+            Product::where('id', $productId)->increment('wishlist_count');
+            
+            return response()->json([
+                'success' => true,
+                'in_wishlist' => true,
+                'message' => 'Produk ditambahkan ke wishlist'
+            ]);
+        }
+    }
+
+    /**
+     * Display wishlist page
+     */
     public function index()
     {
         $user = Auth::user();
-        
         $wishlists = Wishlist::where('user_id', $user->id)
-            ->with('product.category')
+            ->with('product')
             ->latest()
             ->paginate(12);
         
@@ -24,163 +73,124 @@ class WishlistController extends Controller
         return view('user.pages.wishlist', compact('wishlists', 'totalItems'));
     }
 
+    /**
+     * Add to wishlist (alternative method)
+     */
     public function add(Request $request)
     {
-        $user = Auth::user();
-        
         $request->validate([
-            'product_id' => 'required|exists:products,id',
+            'product_id' => 'required|exists:products,id'
         ]);
-        
-        $exists = Wishlist::where('user_id', $user->id)
+
+        $exists = Wishlist::where('user_id', Auth::id())
             ->where('product_id', $request->product_id)
             ->exists();
-        
+
         if ($exists) {
             return response()->json([
                 'success' => false,
-                'message' => 'Produk sudah ada di wishlist Anda.',
-            ], 409);
-        }
-        
-        $wishlist = Wishlist::create([
-            'user_id' => $user->id,
-            'product_id' => $request->product_id,
-        ]);
-        
-        // Increment wishlist count on product
-        Product::where('id', $request->product_id)->increment('wishlist_count');
-        
-        return response()->json([
-            'success' => true,
-            'message' => 'Produk berhasil ditambahkan ke wishlist!',
-            'wishlist_id' => $wishlist->id,
-        ]);
-    }
-
-    public function remove($id)
-    {
-        $user = Auth::user();
-        
-        $wishlist = Wishlist::where('user_id', $user->id)
-            ->where('id', $id)
-            ->firstOrFail();
-        
-        // Decrement wishlist count on product
-        Product::where('id', $wishlist->product_id)->decrement('wishlist_count');
-        
-        $wishlist->delete();
-        
-        if (request()->wantsJson()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Produk berhasil dihapus dari wishlist!',
+                'message' => 'Produk sudah ada di wishlist'
             ]);
         }
-        
-        return redirect()->route('user.wishlist')
-            ->with('success', 'Produk berhasil dihapus dari wishlist!');
+
+        Wishlist::create([
+            'user_id' => Auth::id(),
+            'product_id' => $request->product_id
+        ]);
+
+        Product::where('id', $request->product_id)->increment('wishlist_count');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Produk ditambahkan ke wishlist'
+        ]);
     }
 
-    public function moveToCart($id)
+    /**
+     * Remove from wishlist
+     */
+    public function remove($id)
     {
-        $user = Auth::user();
-        
-        $wishlist = Wishlist::where('user_id', $user->id)
+        $wishlist = Wishlist::where('user_id', Auth::id())
             ->where('id', $id)
             ->firstOrFail();
-        
-        // Add to cart logic here
-        // Cart::add($wishlist->product_id, 1);
-        
-        // Remove from wishlist
+
         Product::where('id', $wishlist->product_id)->decrement('wishlist_count');
         $wishlist->delete();
-        
+
         return redirect()->route('user.wishlist')
-            ->with('success', 'Produk dipindahkan ke keranjang!');
+            ->with('success', 'Produk dihapus dari wishlist');
     }
 
+    /**
+     * Move wishlist item to cart
+     */
+    public function moveToCart($id)
+    {
+        $wishlist = Wishlist::where('user_id', Auth::id())
+            ->where('id', $id)
+            ->firstOrFail();
+
+        // Add to cart logic here
+        // Cart::add($wishlist->product_id, 1);
+
+        Product::where('id', $wishlist->product_id)->decrement('wishlist_count');
+        $wishlist->delete();
+
+        return redirect()->route('user.wishlist')
+            ->with('success', 'Produk dipindahkan ke keranjang');
+    }
+
+    /**
+     * Clear all wishlist
+     */
     public function clear()
     {
         $user = Auth::user();
         
-        // Decrement all wishlist counts
         $productIds = Wishlist::where('user_id', $user->id)->pluck('product_id');
         Product::whereIn('id', $productIds)->decrement('wishlist_count');
         
         Wishlist::where('user_id', $user->id)->delete();
-        
+
         return redirect()->route('user.wishlist')
-            ->with('success', 'Semua produk dihapus dari wishlist!');
+            ->with('success', 'Wishlist berhasil dikosongkan');
     }
 
-    public function check($productId)
-    {
-        $user = Auth::user();
-        
-        $exists = Wishlist::where('user_id', $user->id)
-            ->where('product_id', $productId)
-            ->exists();
-        
-        return response()->json([
-            'in_wishlist' => $exists,
-        ]);
-    }
-
+    /**
+     * Bulk remove from wishlist
+     */
     public function bulkRemove(Request $request)
     {
-        $user = Auth::user();
-        
         $request->validate([
             'ids' => 'required|array',
-            'ids.*' => 'exists:wishlists,id',
+            'ids.*' => 'exists:wishlists,id'
         ]);
-        
-        $wishlists = Wishlist::where('user_id', $user->id)
+
+        $wishlists = Wishlist::where('user_id', Auth::id())
             ->whereIn('id', $request->ids)
             ->get();
-        
+
         foreach ($wishlists as $wishlist) {
             Product::where('id', $wishlist->product_id)->decrement('wishlist_count');
             $wishlist->delete();
         }
-        
+
         return redirect()->route('user.wishlist')
-            ->with('success', count($request->ids) . ' produk berhasil dihapus!');
+            ->with('success', count($request->ids) . ' produk dihapus dari wishlist');
     }
 
-    public function share()
+    /**
+     * Check if product is in wishlist
+     */
+    public function check($productId)
     {
-        $user = Auth::user();
-        
-        $wishlists = Wishlist::where('user_id', $user->id)
-            ->with('product')
-            ->get();
-        
-        // Generate shareable link
-        $shareToken = base64_encode($user->id . '|' . now()->addDays(7)->timestamp);
-        
+        $exists = Wishlist::where('user_id', Auth::id())
+            ->where('product_id', $productId)
+            ->exists();
+
         return response()->json([
-            'share_url' => route('user.wishlist.shared', $shareToken),
-            'products' => $wishlists->pluck('product'),
+            'in_wishlist' => $exists
         ]);
-    }
-
-    public function shared($token)
-    {
-        // Decode token and validate
-        $decoded = base64_decode($token);
-        [$userId, $expiry] = explode('|', $decoded);
-        
-        if ($expiry < now()->timestamp) {
-            abort(404, 'Link wishlist sudah kadaluarsa.');
-        }
-        
-        $wishlists = Wishlist::where('user_id', $userId)
-            ->with('product')
-            ->get();
-        
-        return view('user.pages.wishlist-shared', compact('wishlists'));
     }
 }

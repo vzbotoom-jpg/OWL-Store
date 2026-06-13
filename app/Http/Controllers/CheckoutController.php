@@ -63,8 +63,18 @@ class CheckoutController extends Controller
         
         $discount = session('cart_discount', 0);
         $couponCode = session('coupon_code');
+        
+        // Calculate total weight with safe handling
         $totalWeight = $cartItems->sum(function($item) {
-            return ($item->product->weight ?? 1) * $item->quantity;
+            $weight = $item->product->weight ?? 1;
+            // Remove any non-numeric characters (like "kg", "±", " ", etc)
+            $weight = preg_replace('/[^0-9.]/', '', (string)$weight);
+            $weight = floatval($weight);
+            // If weight becomes 0 or empty, use default 1
+            if ($weight <= 0) {
+                $weight = 1;
+            }
+            return $weight * $item->quantity;
         });
         
         $total = $subtotal - $discount;
@@ -94,6 +104,153 @@ class CheckoutController extends Controller
     }
     
     /**
+     * Get available vouchers for checkout
+     */
+    public function getVouchers()
+    {
+        $subtotal = $this->getCurrentSubtotal();
+        
+        $vouchers = Coupon::where('is_active', true)
+            ->where('starts_at', '<=', now())
+            ->where('ends_at', '>=', now())
+            ->where(function($q) {
+                $q->whereNull('usage_limit')
+                  ->orWhereRaw('used_count < usage_limit');
+            })
+            ->get()
+            ->map(function($voucher) use ($subtotal) {
+                return [
+                    'id' => $voucher->id,
+                    'code' => $voucher->code,
+                    'name' => $voucher->name,
+                    'type' => $voucher->type,
+                    'value' => $voucher->value,
+                    'min_spend' => $voucher->min_spend,
+                    'max_discount' => $voucher->max_discount,
+                    'discount_display' => $voucher->type === 'percentage' ? $voucher->value . '%' : 'Rp ' . number_format($voucher->value, 0, ',', '.'),
+                    'ends_at_formatted' => $voucher->ends_at->format('d M Y'),
+                    'is_applicable' => $subtotal >= $voucher->min_spend,
+                    'estimated_discount' => $this->calculateCouponDiscount($voucher, $subtotal)
+                ];
+            });
+        
+        return response()->json([
+            'success' => true,
+            'vouchers' => $vouchers
+        ]);
+    }
+    
+    /**
+     * Apply voucher to checkout
+     */
+    public function applyVoucher(Request $request)
+    {
+        $request->validate([
+            'code' => 'required|string|max:50'
+        ]);
+        
+        $coupon = Coupon::where('code', strtoupper($request->code))
+            ->where('is_active', true)
+            ->where('starts_at', '<=', now())
+            ->where('ends_at', '>=', now())
+            ->where(function($q) {
+                $q->whereNull('usage_limit')
+                  ->orWhereRaw('used_count < usage_limit');
+            })
+            ->first();
+        
+        if (!$coupon) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Kupon tidak valid atau sudah kadaluarsa'
+            ]);
+        }
+        
+        $subtotal = $this->getCurrentSubtotal();
+        
+        if ($subtotal < $coupon->min_spend) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Minimal belanja Rp ' . number_format($coupon->min_spend, 0, ',', '.') . ' untuk menggunakan kupon ini'
+            ]);
+        }
+        
+        $discount = $this->calculateCouponDiscount($coupon, $subtotal);
+        
+        session([
+            'checkout_voucher' => [
+                'id' => $coupon->id,
+                'code' => $coupon->code,
+                'name' => $coupon->name,
+                'discount' => $discount
+            ]
+        ]);
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Kupon berhasil diterapkan!',
+            'discount' => $discount,
+            'voucher' => [
+                'code' => $coupon->code,
+                'name' => $coupon->name,
+                'discount_display' => 'Rp ' . number_format($discount, 0, ',', '.')
+            ]
+        ]);
+    }
+    
+    /**
+     * Remove voucher from checkout
+     */
+    public function removeVoucher()
+    {
+        session()->forget('checkout_voucher');
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Voucher dihapus'
+        ]);
+    }
+    
+    /**
+     * Get current subtotal from cart
+     */
+    private function getCurrentSubtotal()
+    {
+        $userId = Auth::id();
+        $sessionId = session()->getId();
+        
+        return Cart::with('product')
+            ->where(function($q) use ($userId, $sessionId) {
+                if ($userId) {
+                    $q->where('user_id', $userId);
+                } else {
+                    $q->where('session_id', $sessionId);
+                }
+            })
+            ->get()
+            ->sum(function($item) {
+                return $item->price * $item->quantity;
+            });
+    }
+    
+    /**
+     * Calculate coupon discount
+     */
+    private function calculateCouponDiscount($coupon, $subtotal)
+    {
+        if ($coupon->type === 'percentage') {
+            $discount = $subtotal * ($coupon->value / 100);
+            if ($coupon->max_discount && $discount > $coupon->max_discount) {
+                $discount = $coupon->max_discount;
+            }
+        } else {
+            $discount = $coupon->value;
+        }
+        
+        return min($discount, $subtotal);
+    }
+    
+    /**
      * Get shipping methods based on location
      */
     public function getShipping(Request $request)
@@ -101,12 +258,17 @@ class CheckoutController extends Controller
         $request->validate([
             'province' => 'required|string',
             'city' => 'required|string',
-            'weight' => 'required|integer|min:1'
+            'weight' => 'required|numeric|min:1'
         ]);
         
         $province = $request->province;
         $city = $request->city;
-        $weight = $request->weight;
+        $weight = floatval($request->weight);
+        
+        // Ensure weight is at least 1
+        if ($weight < 1) {
+            $weight = 1;
+        }
         
         // Get shipping methods
         $methods = $this->calculateShippingCost($province, $city, $weight);
@@ -122,6 +284,9 @@ class CheckoutController extends Controller
      */
     public function process(Request $request)
     {
+        // Log incoming request
+        Log::info('Checkout process started', $request->all());
+        
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255',
@@ -133,8 +298,11 @@ class CheckoutController extends Controller
             'payment_method' => 'required|in:bank_transfer,qris,gopay,cod',
             'shipping_method' => 'required|string',
             'notes' => 'nullable|string|max:500',
-            'save_address' => 'nullable|boolean'
+            'save_address' => 'nullable|boolean',
+            'voucher_code' => 'nullable|string|max:50'
         ]);
+        
+        Log::info('Validation passed');
         
         $userId = Auth::id();
         $sessionId = session()->getId();
@@ -172,9 +340,32 @@ class CheckoutController extends Controller
         $couponCode = session('coupon_code');
         $couponId = session('coupon_id');
         
-        // Calculate shipping cost
+        // Check for checkout voucher
+        $voucherDiscount = 0;
+        $voucherCode = $request->voucher_code;
+        if ($voucherCode) {
+            $voucher = Coupon::where('code', $voucherCode)->first();
+            if ($voucher && $voucher->is_valid) {
+                $voucherDiscount = $this->calculateCouponDiscount($voucher, $subtotal);
+                if ($voucherDiscount > 0) {
+                    $discount += $voucherDiscount;
+                    $couponCode = $voucherCode;
+                    $couponId = $voucher->id;
+                }
+            }
+        }
+        
+        // Calculate total weight with safe handling
         $totalWeight = $cartItems->sum(function($item) {
-            return ($item->product->weight ?? 1) * $item->quantity;
+            $weight = $item->product->weight ?? 1;
+            // Remove any non-numeric characters (like "kg", "±", " ", etc)
+            $weight = preg_replace('/[^0-9.]/', '', (string)$weight);
+            $weight = floatval($weight);
+            // If weight becomes 0 or empty, use default 1
+            if ($weight <= 0) {
+                $weight = 1;
+            }
+            return $weight * $item->quantity;
         });
         
         $shippingCost = $this->getShippingCost($request->shipping_method, $request->province, $request->city, $totalWeight);
@@ -198,29 +389,35 @@ class CheckoutController extends Controller
                 ]);
             }
             
+            // Create order number first (for logging)
+            $orderNumber = $this->generateOrderNumber();
+            Log::info('Generated order number: ' . $orderNumber);
+            
             // Create order
-            $order = Order::create([
-                'user_id' => $userId,
-                'order_number' => $this->generateOrderNumber(),
-                'subtotal' => $subtotal,
-                'discount' => $discount,
-                'shipping_cost' => $shippingCost,
-                'total' => $total,
-                'payment_method' => $request->payment_method,
-                'payment_status' => $request->payment_method === 'cod' ? 'pending' : 'unpaid',
-                'status' => 'pending',
-                'shipping_address' => $request->address,
-                'shipping_city' => $request->city,
-                'shipping_province' => $request->province,
-                'shipping_postal_code' => $request->postal_code,
-                'shipping_courier' => $request->shipping_method,
-                'customer_name' => $request->name,
-                'customer_email' => $request->email,
-                'customer_phone' => $request->phone,
-                'notes' => $request->notes,
-                'coupon_code' => $couponCode,
-                'coupon_id' => $couponId
-            ]);
+$order = Order::create([
+    'user_id' => $userId,
+    'order_number' => $orderNumber,
+    'subtotal' => $subtotal,
+    'discount' => $discount,
+    'shipping_cost' => $shippingCost,
+    'total' => $total,
+    'payment_method' => $request->payment_method,
+    'payment_status' => $request->payment_method === 'cod' ? 'pending' : 'unpaid',
+    'status' => 'pending',
+    'shipping_address' => $request->address,
+    'shipping_city' => $request->city,
+    'shipping_province' => $request->province,
+    'shipping_postal_code' => $request->postal_code,
+    'shipping_courier' => $request->shipping_method,
+    'customer_name' => $request->name,
+    'customer_email' => $request->email,
+    'customer_phone' => $request->phone,
+    'notes' => $request->notes,
+    'coupon_code' => $couponCode,
+    'coupon_id' => $couponId
+]);
+            
+            Log::info('Order created successfully with ID: ' . $order->id);
             
             // Create order items
             foreach ($cartItems as $item) {
@@ -249,8 +446,8 @@ class CheckoutController extends Controller
                 }
             })->delete();
             
-            // Clear session discount
-            session()->forget(['cart_discount', 'coupon_code', 'coupon_id', 'shipping_cost']);
+            // Clear session discount and voucher
+            session()->forget(['cart_discount', 'coupon_code', 'coupon_id', 'shipping_cost', 'checkout_voucher']);
             
             // Update coupon usage if applied
             if ($couponCode) {
@@ -258,6 +455,8 @@ class CheckoutController extends Controller
             }
             
             DB::commit();
+            
+            Log::info('Checkout completed successfully for order: ' . $order->order_number);
             
             // Send order confirmation email
             $this->sendOrderConfirmation($order);
@@ -381,10 +580,9 @@ class CheckoutController extends Controller
         $prefix = 'OWL';
         $date = now()->format('ymd');
         $random = strtoupper(Str::random(4));
-        $number = Order::count() + 1;
         
         do {
-            $orderNumber = $prefix . $date . str_pad($number, 4, '0', STR_PAD_LEFT) . $random;
+            $orderNumber = $prefix . $date . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT) . $random;
             $exists = Order::where('order_number', $orderNumber)->exists();
             if ($exists) {
                 $random = strtoupper(Str::random(4));
@@ -399,6 +597,12 @@ class CheckoutController extends Controller
      */
     private function calculateShippingCost($province, $city, $weight)
     {
+        // Ensure weight is numeric and at least 1
+        $weight = floatval($weight);
+        if ($weight <= 0) {
+            $weight = 1;
+        }
+        
         $shippingMethods = [];
         
         // Free shipping for Yogyakarta area
@@ -423,7 +627,7 @@ class CheckoutController extends Controller
         }
         
         // Calculate base cost based on weight (per kg)
-        $weightKg = ceil($weight / 1000);
+        $weightKg = max(1, ceil($weight / 1000));
         
         // JNE
         $jneCost = $weightKg * 15000;
@@ -434,15 +638,6 @@ class CheckoutController extends Controller
             'estimation' => '3-5 hari',
             'courier' => 'JNE',
             'description' => 'Layanan reguler dengan tracking'
-        ];
-        
-        $shippingMethods[] = [
-            'id' => 'jne_yes',
-            'name' => 'JNE YES (Yakin Esok Sampai)',
-            'cost' => max(25000, $weightKg * 25000),
-            'estimation' => '1-2 hari',
-            'courier' => 'JNE',
-            'description' => 'Pengiriman cepat khusus area tertentu'
         ];
         
         // J&T
@@ -470,6 +665,9 @@ class CheckoutController extends Controller
         return $shippingMethods;
     }
     
+    /**
+     * Get shipping cost by method ID
+     */
     private function getShippingCost($methodId, $province, $city, $weight)
     {
         $methods = $this->calculateShippingCost($province, $city, $weight);
@@ -484,17 +682,40 @@ class CheckoutController extends Controller
     }
     
     /**
+     * Helper function to sanitize weight value
+     */
+    private function sanitizeWeight($weight)
+    {
+        if (is_null($weight)) {
+            return 1;
+        }
+        
+        // Remove any non-numeric characters
+        $cleaned = preg_replace('/[^0-9.]/', '', (string)$weight);
+        $numeric = floatval($cleaned);
+        
+        return $numeric > 0 ? $numeric : 1;
+    }
+    
+    /**
      * Get bank accounts for payment
      */
     private function getBanks()
     {
-        // Try to get from settings first
-        $savedBanks = setting('bank_accounts');
-        if ($savedBanks) {
-            $banks = json_decode($savedBanks, true);
-            if (!empty($banks)) {
-                return $banks;
+        // Try to get from database settings if table exists
+        try {
+            if (\Schema::hasTable('settings')) {
+                $setting = \DB::table('settings')->where('key', 'bank_accounts')->first();
+                if ($setting && $setting->value) {
+                    $banks = json_decode($setting->value, true);
+                    if (!empty($banks)) {
+                        return $banks;
+                    }
+                }
             }
+        } catch (\Exception $e) {
+            // Table doesn't exist yet or error, use default
+            \Log::warning('Could not load bank settings from database: ' . $e->getMessage());
         }
         
         // Default banks

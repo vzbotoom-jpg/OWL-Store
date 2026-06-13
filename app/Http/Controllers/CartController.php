@@ -45,9 +45,17 @@ class CartController extends Controller
         $freeShippingThreshold = 500000;
         $freeShipping = $subtotal >= $freeShippingThreshold;
         
-        // Get total weight for shipping calculation
+        // Get total weight for shipping calculation with safe handling
         $totalWeight = $cartItems->sum(function($item) {
-            return ($item->product->weight ?? 1) * $item->quantity;
+            $weight = $item->product->weight ?? 1;
+            // Remove any non-numeric characters
+            $weight = preg_replace('/[^0-9.]/', '', (string)$weight);
+            $weight = floatval($weight);
+            // If weight becomes 0 or empty, use default 1
+            if ($weight <= 0) {
+                $weight = 1;
+            }
+            return $weight * $item->quantity;
         });
         
         // Get recommended products for empty cart
@@ -74,7 +82,8 @@ class CartController extends Controller
         $request->validate([
             'product_id' => 'required|exists:products,id',
             'quantity' => 'required|integer|min:1|max:99',
-            'variant' => 'nullable|string|max:255'
+            'variant' => 'nullable|string|max:255',
+            'buy_now' => 'nullable|boolean'
         ]);
         
         $product = Product::findOrFail($request->product_id);
@@ -123,7 +132,8 @@ class CartController extends Controller
                 }
                 $cartItem->update([
                     'quantity' => $newQuantity,
-                    'price' => $product->price
+                    'price' => $product->price,
+                    'variant' => $request->variant ?? $cartItem->variant
                 ]);
                 $message = 'Jumlah produk diperbarui di keranjang';
             } else {
@@ -143,6 +153,16 @@ class CartController extends Controller
             
             // Get updated cart count
             $cartCount = $this->getCartCount();
+            
+            // If buy_now is true, return success for redirect to checkout
+            if ($request->buy_now) {
+                return response()->json([
+                    'success' => true,
+                    'message' => $message,
+                    'cart_count' => $cartCount,
+                    'redirect' => route('checkout')
+                ]);
+            }
             
             return response()->json([
                 'success' => true,
@@ -318,6 +338,9 @@ class CartController extends Controller
             }
         } elseif ($coupon->type === 'nominal') {
             $discount = min($coupon->value, $subtotal);
+        } else {
+            // BOGO type - handle if needed
+            $discount = 0;
         }
         
         // Check per user limit if user is logged in

@@ -136,6 +136,34 @@ class AddressController extends Controller
         }
     }
 
+    /**
+     * Get list of addresses as JSON for API
+     */
+    public function getList()
+    {
+        $addresses = Address::where('user_id', Auth::id())
+            ->orderBy('is_default', 'desc')
+            ->get()
+            ->map(function($address) {
+                return [
+                    'id' => $address->id,
+                    'label' => $address->label,
+                    'name' => $address->name,
+                    'phone' => $address->phone,
+                    'address' => $address->address,
+                    'city' => $address->city,
+                    'province' => $address->province,
+                    'postal_code' => $address->postal_code,
+                    'is_default' => (bool) $address->is_default,
+                ];
+            });
+        
+        return response()->json([
+            'success' => true,
+            'addresses' => $addresses
+        ]);
+    }
+
     public function getCities(Request $request)
     {
         // Integrasi dengan API RajaOngkir atau sejenisnya

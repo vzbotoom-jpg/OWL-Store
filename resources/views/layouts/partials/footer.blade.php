@@ -39,10 +39,6 @@
                     Furnitur besi premium, dibuat langsung oleh pengrajin las profesional Yogyakarta. Custom ukuran & warna tersedia.
                 </p>
                 <div class="flex gap-3">
-                    <a href="https://wa.me/6283844029190" target="_blank"
-                       class="inline-flex items-center gap-2 bg-green-600 hover:bg-green-500 text-white text-xs font-medium px-4 py-2 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg">
-                        <i class="ti ti-brand-whatsapp text-base"></i> Chat via WhatsApp
-                    </a>
                     <a href="#" class="inline-flex items-center justify-center w-8 h-8 bg-white/10 hover:bg-[#e8a020] rounded-lg transition-colors">
                         <i class="ti ti-brand-instagram text-sm"></i>
                     </a>
@@ -131,33 +127,6 @@
                 </ul>
             </div>
 
-            {{-- Kontak & Our E-Store --}}
-            <div>
-                <h4 class="text-white font-bold text-sm mb-4 flex items-center gap-2">
-                    <i class="ti ti-mail text-[#e8a020] text-base"></i> Kontak
-                </h4>
-                <ul class="space-y-3 mb-6">
-                    <li class="flex items-start gap-2.5 text-blue-300 text-xs">
-                        <i class="ti ti-map-pin text-[#e8a020] mt-0.5"></i>
-                        <span>Yogyakarta, Indonesia</span>
-                    </li>
-                    <li class="flex items-center gap-2.5 text-blue-300 text-xs">
-                        <i class="ti ti-brand-whatsapp text-[#e8a020]"></i>
-                        <a href="https://wa.me/6283844029190" class="hover:text-white transition-colors">+62 838-4402-9190</a>
-                    </li>
-                    <li class="flex items-center gap-2.5 text-blue-300 text-xs">
-                        <i class="ti ti-mail text-[#e8a020]"></i>
-                        <a href="mailto:optimaweld21@gmail.com" class="hover:text-white transition-colors">optimaweld21@gmail.com</a>
-                    </li>
-                    <li class="flex items-start gap-2.5 text-blue-300 text-xs">
-                        <i class="ti ti-clock text-[#e8a020] mt-0.5"></i>
-                        <div>
-                            Senin–Sabtu: 08.00–17.00<br>
-                            <span class="text-red-400">Minggu: Tutup</span>
-                        </div>
-                    </li>
-                </ul>
-
                 {{-- Our E-Store --}}
                 <div>
                     <h4 class="text-white font-bold text-xs mb-3 uppercase tracking-wider flex items-center gap-2">
@@ -179,20 +148,6 @@
                             </div>
                             Tokopedia
                             <i class="ti ti-external-link text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"></i>
-                        </a>
-                        <a href="#" class="flex items-center gap-2 text-blue-300 hover:text-white text-xs transition-colors group">
-                            <div class="w-7 h-7 bg-purple-600 rounded-lg flex items-center justify-center">
-                                <i class="ti ti-shopping-bag text-white text-sm"></i>
-                            </div>
-                            OWL Store
-                            <i class="ti ti-external-link text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"></i>
-                        </a>
-                        <a href="#" class="flex items-center gap-2 text-blue-300 hover:text-white text-xs transition-colors group">
-                            <div class="w-7 h-7 bg-amber-600 rounded-lg flex items-center justify-center">
-                                <i class="ti ti-file-description text-white text-sm"></i>
-                            </div>
-                            E-Catalog
-                            <i class="ti ti-download text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"></i>
                         </a>
                     </div>
                 </div>

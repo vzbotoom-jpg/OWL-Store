@@ -9,13 +9,14 @@ use App\Http\Controllers\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\OrderController;
 use App\Http\Controllers\Admin\UserController;
-use App\Http\Controllers\Admin\ReviewController;
+use App\Http\Controllers\Admin\ReviewController as AdminReviewController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\DiscountController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\ContactController;
+use App\Http\Controllers\ReviewController;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Http\Request;
 
@@ -30,6 +31,17 @@ Route::view('/faq', 'pages.faq')->name('faq');
 Route::get('/contact', [ContactController::class, 'index'])->name('contact');
 Route::post('/contact', [ContactController::class, 'send'])->name('contact.send');
 
+// ===== WISHLIST =====
+Route::post('/wishlist/toggle', [App\Http\Controllers\User\WishlistController::class, 'toggle'])->name('wishlist.toggle')->middleware('auth');
+Route::get('/wishlist', [App\Http\Controllers\User\WishlistController::class, 'index'])->name('wishlist.index')->middleware('auth');
+Route::post('/wishlist/add', [App\Http\Controllers\User\WishlistController::class, 'add'])->name('wishlist.add')->middleware('auth');
+Route::delete('/wishlist/{id}', [App\Http\Controllers\User\WishlistController::class, 'remove'])->name('wishlist.remove')->middleware('auth');
+
+// ===== REVIEWS (Public Reviews) =====
+Route::post('/reviews', [ReviewController::class, 'store'])->name('reviews.store')->middleware('auth');
+Route::post('/reviews/{id}/reply', [ReviewController::class, 'reply'])->name('reviews.reply')->middleware('auth');
+Route::delete('/reviews/{id}', [ReviewController::class, 'destroy'])->name('reviews.destroy')->middleware('auth');
+
 // ===== CART (Guest & User) =====
 Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
 Route::post('/cart/add', [CartController::class, 'add'])->name('cart.add');
@@ -38,7 +50,7 @@ Route::post('/cart/remove', [CartController::class, 'remove'])->name('cart.remov
 Route::post('/cart/apply-coupon', [CartController::class, 'applyCoupon'])->name('cart.apply-coupon');
 Route::post('/cart/remove-coupon', [CartController::class, 'removeCoupon'])->name('cart.remove-coupon');
 
-// ===== CHECKOUT =====
+// ===== CHECKOUT (DENGAN VOUCHER) - HANYA 1 BLOK! =====
 Route::middleware('auth')->group(function () {
     Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout');
     Route::post('/checkout/process', [CheckoutController::class, 'process'])->name('checkout.process');
@@ -46,6 +58,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/checkout/success/{order}', [CheckoutController::class, 'success'])->name('checkout.success');
     Route::get('/checkout/payment/{order}', [CheckoutController::class, 'payment'])->name('checkout.payment');
     Route::post('/checkout/confirm-payment/{order}', [CheckoutController::class, 'confirmPayment'])->name('checkout.confirm-payment');
+    
+    // Checkout Vouchers - TEMPATKAN DI SINI, BUKAN DI ADMIN!
+    Route::get('/checkout/vouchers', [CheckoutController::class, 'getVouchers'])->name('checkout.vouchers');
+    Route::post('/checkout/apply-voucher', [CheckoutController::class, 'applyVoucher'])->name('checkout.apply-voucher');
+    Route::post('/checkout/remove-voucher', [CheckoutController::class, 'removeVoucher'])->name('checkout.remove-voucher');
 });
 
 // ===== AUTH =====
@@ -83,6 +100,7 @@ Route::prefix('user')->name('user.')->middleware('auth')->group(function () {
     Route::get('/profile', [App\Http\Controllers\User\ProfileController::class, 'index'])->name('profile');
     Route::put('/profile', [App\Http\Controllers\User\ProfileController::class, 'update'])->name('profile.update');
     Route::get('/settings', [App\Http\Controllers\User\SettingsController::class, 'index'])->name('settings');
+    Route::delete('/account/delete', [App\Http\Controllers\User\SettingsController::class, 'deleteAccount'])->name('account.delete');
     Route::get('/orders', [App\Http\Controllers\User\OrderController::class, 'index'])->name('orders');
     Route::get('/orders/{id}', [App\Http\Controllers\User\OrderController::class, 'show'])->name('orders.show');
     Route::post('/orders/{id}/cancel', [App\Http\Controllers\User\OrderController::class, 'cancel'])->name('orders.cancel');
@@ -97,6 +115,7 @@ Route::prefix('user')->name('user.')->middleware('auth')->group(function () {
     Route::put('/addresses/{id}', [App\Http\Controllers\User\AddressController::class, 'update'])->name('addresses.update');
     Route::delete('/addresses/{id}', [App\Http\Controllers\User\AddressController::class, 'destroy'])->name('addresses.destroy');
     Route::patch('/addresses/{id}/default', [App\Http\Controllers\User\AddressController::class, 'setDefault'])->name('addresses.default');
+    Route::get('/addresses/list', [App\Http\Controllers\User\AddressController::class, 'getList'])->name('addresses.list'); // ✅ HARUS ADA
     Route::get('/security', [App\Http\Controllers\User\SecurityController::class, 'index'])->name('security');
     Route::post('/security/password', [App\Http\Controllers\User\SecurityController::class, 'changePassword'])->name('security.password');
     Route::post('/security/two-factor/enable', [App\Http\Controllers\User\SecurityController::class, 'enableTwoFactor'])->name('security.two-factor.enable');
@@ -108,12 +127,14 @@ Route::prefix('user')->name('user.')->middleware('auth')->group(function () {
     Route::delete('/wishlist/clear', [App\Http\Controllers\User\WishlistController::class, 'clear'])->name('wishlist.clear');
     Route::post('/wishlist/bulk-remove', [App\Http\Controllers\User\WishlistController::class, 'bulkRemove'])->name('wishlist.bulk-remove');
     Route::get('/wishlist/check/{productId}', [App\Http\Controllers\User\WishlistController::class, 'check'])->name('wishlist.check');
+    Route::post('/settings/notifications', [App\Http\Controllers\User\SettingsController::class, 'updateNotification'])->name('settings.notifications');
 });
 
 // ===== ADMIN =====
 Route::prefix('admin')->name('admin.')->middleware('admin')->group(function () {
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard-data', [DashboardController::class, 'getDashboardData'])->name('dashboard.data'); // ✅ HARUS ADA
     
     // Products
     Route::resource('products', AdminProductController::class);
@@ -140,11 +161,11 @@ Route::prefix('admin')->name('admin.')->middleware('admin')->group(function () {
     Route::patch('/users/{id}/toggle-status', [UserController::class, 'toggleStatus'])->name('users.toggle-status');
     Route::get('/users/export', [UserController::class, 'export'])->name('users.export');
     
-    // Reviews
-    Route::get('/reviews', [ReviewController::class, 'index'])->name('reviews.index');
-    Route::delete('/reviews/{id}', [ReviewController::class, 'destroy'])->name('reviews.destroy');
-    Route::patch('/reviews/{id}/toggle-status', [ReviewController::class, 'toggleStatus'])->name('reviews.toggle-status');
-    Route::post('/reviews/{id}/reply', [ReviewController::class, 'reply'])->name('reviews.reply');
+    // Admin Reviews Management
+    Route::get('/reviews', [AdminReviewController::class, 'index'])->name('reviews.index');
+    Route::delete('/reviews/{id}', [AdminReviewController::class, 'destroy'])->name('reviews.destroy');
+    Route::patch('/reviews/{id}/toggle-status', [AdminReviewController::class, 'toggleStatus'])->name('reviews.toggle-status');
+    Route::post('/reviews/{id}/reply', [AdminReviewController::class, 'reply'])->name('reviews.reply');
     
     // Reports
     Route::get('/reports/sales', [ReportController::class, 'sales'])->name('reports.sales');
@@ -160,6 +181,7 @@ Route::prefix('admin')->name('admin.')->middleware('admin')->group(function () {
     Route::get('/discounts/{id}/edit', [DiscountController::class, 'edit'])->name('discounts.edit');
     Route::put('/discounts/{id}', [DiscountController::class, 'update'])->name('discounts.update');
     Route::delete('/discounts/{id}', [DiscountController::class, 'destroy'])->name('discounts.destroy');
+    Route::post('/discounts/generate-code', [DiscountController::class, 'generateCode'])->name('discounts.generate-code'); // ✅ HARUS ADA
     
     // Settings
     Route::get('/settings', [SettingController::class, 'index'])->name('settings.index');
